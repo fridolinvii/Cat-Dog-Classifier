@@ -11,8 +11,7 @@ from torch.utils.data import Dataset, DataLoader
 import glob
 from PIL import Image
 from dataset import datasetloader
-from model import CNN_1
-from model import CNN_2
+import model as m
 
 #function to count number of parameters
 def get_n_params(model):
@@ -20,6 +19,9 @@ def get_n_params(model):
     for p in list(model.parameters()):
         np += p.nelement()
     return np
+
+
+gpu = "cuda:0"  # Say what GPU you want to use
 
 input_size  = 224*224*3   # images are 224*224 pixels and has 3 channels because of RGB color
 output_size = 2      # there are 2 classes---Cat and dog
@@ -31,7 +33,7 @@ batch_size = 64
 
 
 # define training and test data directories
-data_dir = './Data/'
+data_dir = './data/Cat_Dog_data/'
 train_dir = os.path.join(data_dir, 'train/')
 test_dir = os.path.join(data_dir, 'test/')
 
@@ -62,27 +64,34 @@ test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size,
 
 accuracy_list = []
 
-def train(epoch, model):
+
+
+
+
+def train(epoch, model, gpu): 
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         
         #print(data[0].shape)
         optimizer.zero_grad()
+        data = data.to(gpu) 
+        target = target.to(gpu) 
         output = model(data)
         loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
-        if batch_idx % 10 and  >5:
+        if batch_idx % 10 == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
             
-def test(model):
+def test(model,gpu):
     model.eval()
     test_loss = 0
     correct = 0
     for data, target in test_loader:
-        
+        data = data.to(gpu) 
+        target = target.to(gpu) 
         output = model(data)
         test_loss += F.nll_loss(output, target, reduction='sum').item() # sum up batch loss                                                               
         pred = output.data.max(1, keepdim=True)[1] # get the index of the max log-probability                                                                 
@@ -95,25 +104,29 @@ def test(model):
         test_loss, correct, len(test_loader.dataset),
         accuracy))
 
-# Training settings  for model 1
-n_features = 2 # hyperparameter
-
-model_cnn1 = CNN_1(input_size, n_features, output_size)
-optimizer = optim.SGD(model_cnn1.parameters(), lr=0.01, momentum=0.5)
-print('Number of parameters: {}'.format(get_n_params(model_cnn1)))
-
-#for epoch in range(0, 1):
- #   train(epoch, model_cnn1)
-  #  test(model_cnn1)
 
 
-# Training settings for model 2
-n_features = 6 # hyperparameter
-model_cnn2 = CNN_2(input_size, n_features, output_size)
-optimizer = optim.SGD(model_cnn2.parameters(), lr=0.01, momentum=0.5)
-print('Number of parameters: {}'.format(get_n_params(model_cnn2)))
+# Creates folder to save results
+try:
+    os.mkdir("results")
+except OSError as error: 
+    print(error)    
 
-for epoch in range(0, 1):
-    train(epoch, model_cnn2)
-    test(model_cnn2)
 
+# Training settings for model 
+numberOfEpochs = 3
+model = m.CNN(input_size, output_size)
+optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
+print('Number of parameters: {}'.format(get_n_params(model)))
+for epoch in range(0, numberOfEpochs):
+    model = model.to(gpu)     
+    train(epoch, model,gpu)
+    test(model,gpu)
+    
+    # save model
+    state = {
+        'epoch': epoch,
+        'network': model.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        }
+    torch.save(state, "results/model.pt")

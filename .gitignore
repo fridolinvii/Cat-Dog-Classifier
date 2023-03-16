@@ -131,4 +131,4 @@ dmypy.json
 #Data files
 Data/
 data/
-
+results/
