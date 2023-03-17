@@ -37,9 +37,8 @@ num_workers = 0
 batch_size = 64
 
 
-# define training and test data directories
+# define test data directories
 data_dir = './data/Cat_Dog_data/'
-train_dir = os.path.join(data_dir, 'train/')
 test_dir = os.path.join(data_dir, 'test/')
 
 
@@ -47,10 +46,7 @@ test_dir = os.path.join(data_dir, 'test/')
 image_size = (224, 224)
 mean = [0.485, 0.456, 0.406]
 std  = [0.229, 0.224, 0.225]
-train_transform = transforms.Compose([
-                                transforms.Resize(image_size), 
-                                                    transforms.ToTensor(), 
-                                transforms.Normalize(mean, std)])
+
 test_transforms = transforms.Compose([
                                 transforms.Resize(image_size), 
                                 transforms.ToTensor(), 
@@ -58,12 +54,9 @@ test_transforms = transforms.Compose([
 
 
  ## read data set using the custom class
-train_dataset = datasetloader(train_dir, transform=train_transform)
 test_dataset = datasetloader(test_dir, transform=test_transforms)
 
 ## load data using utils
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size,
-     num_workers=num_workers, shuffle=True)
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, 
      num_workers=num_workers)
 
