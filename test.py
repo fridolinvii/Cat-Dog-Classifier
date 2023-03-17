@@ -13,6 +13,11 @@ from PIL import Image
 from dataset import datasetloader
 import model as m
 
+
+
+
+
+
 #function to count number of parameters
 def get_n_params(model):
     np=0
@@ -21,7 +26,7 @@ def get_n_params(model):
     return np
 
 
-gpu = th.device("cuda:0" if th.cuda.is_available() else "cpu"  # Say what GPU you want to use
+gpu = "cuda:0"  # Say what GPU you want to use
 
 input_size  = 224*224*3   # images are 224*224 pixels and has 3 channels because of RGB color
 output_size = 2      # there are 2 classes---Cat and dog
@@ -65,25 +70,6 @@ test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size,
 accuracy_list = []
 
 
-
-
-
-def train(epoch, model, gpu): 
-    model.train()
-    for batch_idx, (data, target) in enumerate(train_loader):
-        
-        #print(data[0].shape)
-        optimizer.zero_grad()
-        data = data.to(gpu) 
-        target = target.to(gpu) 
-        output = model(data)
-        loss = F.nll_loss(output, target)
-        loss.backward()
-        optimizer.step()
-        if batch_idx % 10 == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(data), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss.item()))
             
 def test(model,gpu):
     model.eval()
@@ -106,27 +92,16 @@ def test(model,gpu):
 
 
 
-# Creates folder to save results
-try:
-    os.mkdir("results")
-except OSError as error: 
-    print(error)    
 
-
-# Training settings for model 
+# Testing the model
 numberOfEpochs = 3
 model = m.CNN(input_size, output_size)
-optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
+## load the saved state of the model
+state = torch.load("results/model.pt")
+model.load_state_dict(state['network'])  # apply the weights
+model.to(gpu)
 print('Number of parameters: {}'.format(get_n_params(model)))
-for epoch in range(0, numberOfEpochs):
-    model = model.to(gpu)     
-    train(epoch, model,gpu)
-    test(model,gpu)
-    
-    # save model
-    state = {
-        'epoch': epoch,
-        'network': model.state_dict(),
-        'optimizer': optimizer.state_dict(),
-        }
-    torch.save(state, "results/model.pt")
+print('Number of epochs: {}'.format(state['epoch']))
+test(model,gpu)
+
+
