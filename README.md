@@ -11,14 +11,22 @@ Extract it to the data folder.
 Create a new environemt and run the following command in your terminal
 ```
 
-pip install -r requirement.txt
+pip3 install -r requirement.txt
 
 ```
 
 ### Usage
 
-To execute the project, you only need to run the file below in your terminal
+To train the network use
 
 ```
-python3 main.py
+python3 train.py
 ```
+and to test the performance of the network use
+```
+python3 test.py
+```
+
+#### Acknowledgment
+We modified the code from https://github.com/AlexSananka/Cat-Dog-Classifier/.
+
