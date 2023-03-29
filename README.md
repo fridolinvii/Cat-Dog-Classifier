@@ -8,7 +8,7 @@ Extract it to the data folder.
 
 ### Installations
 
-Create a new environemt and run the following command in your terminal
+Create a new environemt and install the required python packages with the command
 ```
 
 pip3 install -r requirement.txt
