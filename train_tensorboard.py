@@ -13,6 +13,9 @@ from PIL import Image
 from dataset import datasetloader
 import model as m
 
+
+from torch.utils.tensorboard import SummaryWriter
+
 #function to count number of parameters
 def get_n_params(model):
     np=0
@@ -67,9 +70,9 @@ accuracy_list = []
 
 
 
-
 def train(epoch, model, gpu): 
     model.train()
+    train_loss = 0
     for batch_idx, (data, target) in enumerate(train_loader):
         
         #print(data[0].shape)
@@ -77,13 +80,16 @@ def train(epoch, model, gpu):
         data = data.to(gpu) 
         target = target.to(gpu) 
         output = model(data)
-        loss = F.nll_loss(output, target)
+        loss = F.cross_entropy(output, target)
+        train_loss += F.cross_entropy(output, target, reduction='sum').item()
         loss.backward()
         optimizer.step()
         if batch_idx % 10 == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
+            
+    return train_loss/len(train_loader.dataset)
             
 def test(model,gpu):
     model.eval()
@@ -93,7 +99,7 @@ def test(model,gpu):
         data = data.to(gpu) 
         target = target.to(gpu) 
         output = model(data)
-        test_loss += F.nll_loss(output, target, reduction='sum').item() # sum up batch loss                                                               
+        test_loss += F.cross_entropy(output, target, reduction='sum').item() # sum up batch loss                                                               
         pred = output.data.max(1, keepdim=True)[1] # get the index of the max log-probability                                                                 
         correct += pred.eq(target.data.view_as(pred)).cpu().sum().item()
 
@@ -103,6 +109,8 @@ def test(model,gpu):
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         test_loss, correct, len(test_loader.dataset),
         accuracy))
+    
+    return accuracy
 
 
 
@@ -114,14 +122,22 @@ except OSError as error:
 
 
 # Training settings for model 
-numberOfEpochs = 3
+numberOfEpochs = 100
 model = m.CNN(input_size, output_size)
-optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
+optimizer = optim.Adam(model.parameters(), lr=0.001) 
 print('Number of parameters: {}'.format(get_n_params(model)))
+
+# Start tensorboard writing
+summary_writer = SummaryWriter() # create new summary file (default folder is runs)
+best_accuracy = 0
 for epoch in range(0, numberOfEpochs):
     model = model.to(gpu)     
-    train(epoch, model,gpu)
-    test(model,gpu)
+    train_loss = train(epoch, model,gpu)
+    test_accuracy = test(model,gpu)
+
+    # Write data to see on tensorboard
+    summary_writer.add_scalar(tag='train_loss', scalar_value=train_loss, global_step=epoch)
+    summary_writer.add_scalar(tag='test_accuracy', scalar_value=test_accuracy, global_step=epoch)
     
     # save model
     state = {
@@ -129,4 +145,7 @@ for epoch in range(0, numberOfEpochs):
         'network': model.state_dict(),
         'optimizer': optimizer.state_dict(),
         }
-    th.save(state, "results/model.pt")
+    th.save(state, "results/model_last.pt")
+    if best_accuracy < test_accuracy:
+        best_accuracy = test_accuracy
+        th.save(state, "results/model_best.pt")

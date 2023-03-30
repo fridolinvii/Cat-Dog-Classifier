@@ -1,6 +1,6 @@
 
 import os
-import torch as th
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -12,6 +12,14 @@ import glob
 from PIL import Image
 from dataset import datasetloader
 import model as m
+import tensorflow as tf
+from datetime import datetime
+
+logdir = "runs/test_" + datetime.now().strftime("%Y%m%d-%H%M%S")
+# Creates a file writer for the log directory.
+file_writer = tf.summary.create_file_writer(logdir)
+
+
 
 #function to count number of parameters
 def get_n_params(model):
@@ -21,7 +29,7 @@ def get_n_params(model):
     return np
 
 
-gpu = th.device("cuda:0" if th.cuda.is_available() else "cpu")  # Say what GPU you want to use
+gpu = "cuda:0"  # Say what GPU you want to use
 
 input_size  = 224*224*3   # images are 224*224 pixels and has 3 channels because of RGB color
 output_size = 2      # there are 2 classes---Cat and dog
@@ -32,9 +40,8 @@ num_workers = 0
 batch_size = 64
 
 
-# define training and test data directories
+# define test data directories
 data_dir = './data/'
-train_dir = os.path.join(data_dir, 'train/')
 test_dir = os.path.join(data_dir, 'test/')
 
 
@@ -42,10 +49,7 @@ test_dir = os.path.join(data_dir, 'test/')
 image_size = (224, 224)
 mean = [0.485, 0.456, 0.406]
 std  = [0.229, 0.224, 0.225]
-train_transform = transforms.Compose([
-                                transforms.Resize(image_size), 
-                                                    transforms.ToTensor(), 
-                                transforms.Normalize(mean, std)])
+
 test_transforms = transforms.Compose([
                                 transforms.Resize(image_size), 
                                 transforms.ToTensor(), 
@@ -53,42 +57,24 @@ test_transforms = transforms.Compose([
 
 
  ## read data set using the custom class
-train_dataset = datasetloader(train_dir, transform=train_transform)
 test_dataset = datasetloader(test_dir, transform=test_transforms)
 
 ## load data using utils
-train_loader = th.utils.data.DataLoader(train_dataset, batch_size=batch_size,
-     num_workers=num_workers, shuffle=True)
-test_loader = th.utils.data.DataLoader(test_dataset, batch_size=batch_size, 
+test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, 
      num_workers=num_workers)
 
 accuracy_list = []
 
 
-
-
-
-def train(epoch, model, gpu): 
-    model.train()
-    for batch_idx, (data, target) in enumerate(train_loader):
-        
-        #print(data[0].shape)
-        optimizer.zero_grad()
-        data = data.to(gpu) 
-        target = target.to(gpu) 
-        output = model(data)
-        loss = F.nll_loss(output, target)
-        loss.backward()
-        optimizer.step()
-        if batch_idx % 10 == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(data), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss.item()))
             
 def test(model,gpu):
+    # Start tensorboard writing
     model.eval()
     test_loss = 0
     correct = 0
+    count = -1
+    img = torch.tensor(-1)
+    max_outputs = 25
     for data, target in test_loader:
         data = data.to(gpu) 
         target = target.to(gpu) 
@@ -96,6 +82,31 @@ def test(model,gpu):
         test_loss += F.nll_loss(output, target, reduction='sum').item() # sum up batch loss                                                               
         pred = output.data.max(1, keepdim=True)[1] # get the index of the max log-probability                                                                 
         correct += pred.eq(target.data.view_as(pred)).cpu().sum().item()
+
+
+        # Just write out the wrongli labeled data
+        # We always write max_outputs = 25 images together
+        for i in range(target.shape[0]):
+            if pred[i]!=target[i]:
+                if torch.all(img == -1): #
+                    img = torch.permute(data[i,:,:,:],(1,2,0)).unsqueeze(0).cpu()
+                else:
+                    img = torch.cat((img,torch.permute(data[i,:,:,:],(1,2,0)).unsqueeze(0).cpu()),dim=0) # stack the images
+                if img.shape[0] == max_outputs: 
+                    with file_writer.as_default():
+                        count += 1
+                        tf.summary.image("Wrongly classified", img.numpy(), max_outputs=max_outputs, step=count)
+                        img = torch.tensor(-1)
+    
+    # save the last ones as well
+    if torch.all(img != -1):
+        with file_writer.as_default():
+            count += 1
+            tf.summary.image("Wrongly classified", img.numpy(), max_outputs=max_outputs, step=count)
+        
+
+
+
 
     test_loss /= len(test_loader.dataset)
     accuracy = 100. * correct / len(test_loader.dataset)
@@ -106,27 +117,16 @@ def test(model,gpu):
 
 
 
-# Creates folder to save results
-try:
-    os.mkdir("results")
-except OSError as error: 
-    print(error)    
 
-
-# Training settings for model 
+# Testing the model
 numberOfEpochs = 3
 model = m.CNN(input_size, output_size)
-optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
+## load the saved state of the model (best)
+state = torch.load("results/model_best.pt")
+model.load_state_dict(state['network'])  # apply the weights
+model.to(gpu)
 print('Number of parameters: {}'.format(get_n_params(model)))
-for epoch in range(0, numberOfEpochs):
-    model = model.to(gpu)     
-    train(epoch, model,gpu)
-    test(model,gpu)
-    
-    # save model
-    state = {
-        'epoch': epoch,
-        'network': model.state_dict(),
-        'optimizer': optimizer.state_dict(),
-        }
-    th.save(state, "results/model.pt")
+print('Number of epochs: {}'.format(state['epoch']))
+test(model,gpu)
+
+
