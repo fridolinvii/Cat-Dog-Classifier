@@ -88,24 +88,10 @@ def test(model,gpu):
         # We always write max_outputs = 25 images together
         for i in range(target.shape[0]):
             if pred[i]!=target[i]:
-                if torch.all(img == -1): #
-                    img = torch.permute(data[i,:,:,:],(1,2,0)).unsqueeze(0).cpu()
-                else:
-                    img = torch.cat((img,torch.permute(data[i,:,:,:],(1,2,0)).unsqueeze(0).cpu()),dim=0) # stack the images
-                if img.shape[0] == max_outputs: 
-                    with file_writer.as_default():
-                        count += 1
-                        tf.summary.image("Wrongly classified", img.numpy(), max_outputs=max_outputs, step=count)
-                        img = torch.tensor(-1)
-    
-    # save the last ones as well
-    if torch.all(img != -1):
-        with file_writer.as_default():
-            count += 1
-            tf.summary.image("Wrongly classified", img.numpy(), max_outputs=max_outputs, step=count)
-        
-
-
+                img = torch.permute(data[i,:,:,:],(1,2,0)).unsqueeze(0).cpu()
+                with file_writer.as_default():
+                    count += 1
+                    tf.summary.image("Wrongly classified", img.numpy(), max_outputs=max_outputs, step=count)
 
 
     test_loss /= len(test_loader.dataset)
