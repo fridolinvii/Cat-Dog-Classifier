@@ -145,7 +145,7 @@ if __name__ == "__main__":
     # Training settings for model 
     numberOfEpochs = 20
     model = m.CNN(input_size, output_size)
-    optimizer = optim.Adam(model.parameters(), lr=0.001) 
+    optimizer = optim.Adam(model.parameters(), lr=0.0001) 
     print('Number of parameters: {}'.format(get_n_params(model)))
 
     # Start tensorboard writing

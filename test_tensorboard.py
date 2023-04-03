@@ -84,10 +84,12 @@ def test(model,gpu):
         correct += pred.eq(target.data.view_as(pred)).cpu().sum().item()
 
 
-        # Just write out the wrongli labeled data
+        # Just write out the wrongly labeled data
         # We always write max_outputs = 25 images together
         for i in range(target.shape[0]):
             if pred[i]!=target[i]:
+                # be sure that it is in the correct order. For RGB the RGB channel has to be in the last dimension
+                # it has to be four dimensional. You can iterate in the first channel over the images
                 img = torch.permute(data[i,:,:,:],(1,2,0)).unsqueeze(0).cpu()
                 with file_writer.as_default():
                     count += 1
