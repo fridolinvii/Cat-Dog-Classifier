@@ -12,8 +12,8 @@ import glob
 from PIL import Image
 from dataset import datasetloader
 import model as m
-
-
+import time
+import sys
 from torch.utils.tensorboard import SummaryWriter
 
 #function to count number of parameters
@@ -114,38 +114,59 @@ def test(model,gpu):
 
 
 
-# Creates folder to save results
-try:
-    os.mkdir("results")
-except OSError as error: 
-    print(error)    
 
 
-# Training settings for model 
-numberOfEpochs = 100
-model = m.CNN(input_size, output_size)
-optimizer = optim.Adam(model.parameters(), lr=0.001) 
-print('Number of parameters: {}'.format(get_n_params(model)))
 
-# Start tensorboard writing
-summary_writer = SummaryWriter() # create new summary file (default folder is runs)
-best_accuracy = 0
-for epoch in range(0, numberOfEpochs):
-    model = model.to(gpu)     
-    train_loss = train(epoch, model,gpu)
-    test_accuracy = test(model,gpu)
 
-    # Write data to see on tensorboard
-    summary_writer.add_scalar(tag='train_loss', scalar_value=train_loss, global_step=epoch)
-    summary_writer.add_scalar(tag='test_accuracy', scalar_value=test_accuracy, global_step=epoch)
-    
-    # save model
-    state = {
-        'epoch': epoch,
-        'network': model.state_dict(),
-        'optimizer': optimizer.state_dict(),
-        }
-    th.save(state, "results/model_last.pt")
-    if best_accuracy < test_accuracy:
-        best_accuracy = test_accuracy
-        th.save(state, "results/model_best.pt")
+
+if __name__ == "__main__":
+
+
+    # Creates folder to save results
+    try:
+        os.mkdir("results")
+    except OSError as error: 
+        print(error)    
+
+
+    # Write the data of the terminal into the logfile
+    logfile = input("\nIf you want the output in the logfile? If yes press 1\n")
+    # write all the output in log file ##
+    if logfile == "1":
+        time_string = time.strftime("%Y%m%d-%H%M%S")
+        log_file_path = 'results/logfile_{}.log'.format(time_string)
+        print("Check log file in: ")
+        print(log_file_path)
+        sys.stdout = open(log_file_path, 'w')
+    else:
+        print("No log file, only print to console")
+
+
+    # Training settings for model 
+    numberOfEpochs = 20
+    model = m.CNN(input_size, output_size)
+    optimizer = optim.Adam(model.parameters(), lr=0.001) 
+    print('Number of parameters: {}'.format(get_n_params(model)))
+
+    # Start tensorboard writing
+    summary_writer = SummaryWriter() # create new summary file (default folder is runs)
+    best_accuracy = 0
+    for epoch in range(0, numberOfEpochs):
+        model = model.to(gpu)     
+        train_loss = train(epoch, model,gpu)
+        test_accuracy = test(model,gpu)
+
+        # Write data to see on tensorboard
+        summary_writer.add_scalar(tag='train_loss', scalar_value=train_loss, global_step=epoch)
+        summary_writer.add_scalar(tag='test_accuracy', scalar_value=test_accuracy, global_step=epoch)
+        
+        # save model
+        state = {
+            'epoch': epoch,
+            'network': model.state_dict(),
+            'optimizer': optimizer.state_dict(),
+            }
+        th.save(state, "results/model_last.pt")
+        if best_accuracy < test_accuracy:
+            best_accuracy = test_accuracy
+            th.save(state, "results/model_best.pt")
