@@ -27,6 +27,23 @@ and to test the performance of the network use
 python3 test.py
 ```
 
+### TensorBoard
+
+If you wish to use TensorBoard train the network with 
+```
+python3 train_tensorboard.py
+```
+and to test the performance of the network use
+```
+python3 test_tensorboard.py
+```
+
+You can run TensorBoard with 
+```
+tensorboard –logdir=runs –bind all –port 10001
+```
+
+
 #### Acknowledgment
 We modified the code from https://github.com/AlexSananka/Cat-Dog-Classifier/.
 
